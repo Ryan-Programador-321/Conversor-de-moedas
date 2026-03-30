@@ -1,0 +1,291 @@
+<!-- 
+PROJETO: Conversor de moedas
+
+FUNCIONAMENTO:
+- Busca a lista de moedas disponíveis em uma API
+- Preenche os campos de seleção automaticamente
+- Permite escolher moeda de origem e destino
+- Converte um valor com base na cotação atual
+- Mostra o resultado na tela
+
+ESTADO:
+- valor digitado (number)
+- moeda de origem (string)
+- moeda de destino (string)
+
+FONTE DE DADOS:
+- ExchangeRate API
+- endpoint base:
+  https://v6.exchangerate-api.com/v6/{API_KEY}/latest/{MOEDA}
+
+FLUXO:
+
+1. Ao carregar a página:
+   - chama buscarMoedas()
+   - faz fetch usando USD como base
+   - recebe objeto com taxas
+   - extrai todas as moedas disponíveis
+   - cria options dinamicamente
+   - preenche os dois selects
+
+2. Ao clicar em "Converter":
+   - pega:
+       → valor digitado
+       → moeda origem
+       → moeda destino
+   - faz nova requisição usando a moeda de origem
+   - busca a taxa da moeda de destino
+   - multiplica valor × taxa
+   - mostra resultado na tela
+
+FUNÇÕES PRINCIPAIS:
+
+- buscarMoedas()
+  → busca lista de moedas disponíveis
+  → preenche os selects
+
+- converter()
+  → pega dados da interface
+  → consulta taxa atual
+  → calcula valor convertido
+  → renderiza resultado
+
+CONCEITOS IMPORTANTES:
+
+- fetch()
+  → requisição para API de câmbio
+
+- .then()
+  → trabalha com resposta assíncrona
+
+- Object.keys()
+  → extrai as chaves do objeto conversion_rates
+  → transforma em array de códigos de moedas
+
+- createElement('option')
+  → cria opções dinamicamente nos selects
+
+- multiplicação por taxa
+  → fórmula:
+     valorConvertido = valor * taxaCambio
+
+INTERFACE:
+- input de valor
+- select de origem
+- select de destino
+- botão converter
+- área de resultado
+ -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        *{
+            padding: 0;
+            margin: 0;
+            box-sizing: border-box;
+        }
+
+        html, body{
+            height: 100vh;
+        }
+
+        body{
+            display: flex;
+            background-color: rgb(18, 197, 54);
+            background-image: url(IMGs/9977874.jpg);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .conteinerGeral{
+            width: 50%;
+            height: 50%;
+            border: 3px solid;
+            border-radius: 15px;
+            background-color: rgb(49, 237, 118);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            gap: 20px;
+
+            text-align: center;
+        }
+
+        input{
+            width: 50%;
+            height: 35px;
+            background-color: rgba(0, 0, 0, 0.619);
+            text-align: center;
+            color: aliceblue;
+            font-size: 15px;
+            outline: none;
+        }
+
+        input::placeholder{
+            color: rgba(240, 248, 255, 0.611);
+        }
+
+        .conteinerConversao{
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            width: 50%;
+        }
+
+        .conteinerConversao select{
+            background-color: rgb(84, 239, 169);
+            width: 50%;
+            height: fit-content;
+            text-align: center;
+            padding: 5px;
+            cursor: pointer;
+        }
+
+        #converter{
+            color: #000000;
+            background-color: rgb(230, 217, 32);
+            font-size: 15px;
+            border-radius: 10px;
+            padding: 05px;
+            border:  2px solid #000000;
+            cursor: pointer;
+        }
+
+        .resultado{
+            color: rgb(0, 0, 0);
+            /* text-shadow: 0px 0px 4px black; */
+        }
+
+         @media (min-width: 320px) and (max-width: 600px){
+
+            .conteinerGeral{
+            width: 95%;
+            height: 60%;
+        }
+
+        .conteinerConversao{
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            width: 80%;
+        }
+
+        .conteinerConversao select{
+            background-color: rgb(84, 239, 169);
+            width: 50%;
+            height: fit-content;
+            text-align: center;
+            padding: 5px;
+            cursor: pointer;
+        }
+
+        }
+    </style>
+    
+</head>
+<body>
+
+    <div class="conteinerGeral">
+
+    <h1>Conversor de moedas</h1>
+
+    <input type="number" id="valor" placeholder="Valor a ser convertido">
+
+    <div class="conteinerConversao">
+    
+        <select id="deMoeda">
+            <option selected disabled>De moeda</option>
+        </select>
+
+        <select id="paraMoeda">
+            <option selected disabled>Para moeda</option>
+        </select>
+    </div>
+
+    <button id="converter">Converter $</button>
+
+    <div class="resultado"></div>
+
+    </div>
+
+    <script>
+
+        let $valor = document.getElementById('valor');
+        let $origem = document.getElementById('deMoeda');
+        let $destino = document.getElementById('paraMoeda');
+        let $resultado = document.querySelector('.resultado')
+        const $converter = document.getElementById('converter');
+
+        function buscarMoedas(){
+
+            fetch('https://v6.exchangerate-api.com/v6/9aa7de24bfee87b89cda1f33/latest/USD')
+            .then(resposta => resposta.json())
+            .then(dados => { 
+
+                console.log(dados);
+                
+                //pego o objeto
+                let moedas = dados.conversion_rates;
+
+                //object.keys() serve pra pegar as chaves de um objeto, e devolver um array que contém essas chaves e arrays podem ser percorridos por 'forEach'.
+                Object.keys(moedas).forEach(moeda => {
+
+                    let opcaoOrigem = document.createElement('option');
+                    let opcaoDestino = document.createElement('option');
+
+                    opcaoOrigem.value = moeda;
+                    opcaoOrigem.innerText = moeda;
+
+                    opcaoDestino.value = moeda;
+                    opcaoDestino.innerText = moeda;
+
+                    $origem.appendChild(opcaoOrigem);
+                    $destino.appendChild(opcaoDestino);
+
+                }) 
+        
+            });
+
+            
+        }
+
+        function converter(){
+            let V = $valor.value;
+            let O = $origem.value;
+            let D = $destino.value;
+
+            fetch(`https://v6.exchangerate-api.com/v6/9aa7de24bfee87b89cda1f33/latest/${O}`)
+            .then(resposta => resposta.json())
+            .then(dados => { 
+
+                let taxaC = dados.conversion_rates[D];
+
+                let valorConvertido = Number(V) * taxaC;
+                console.log(valorConvertido);
+
+                $resultado.innerText = `${V} ${O} é igual a ${valorConvertido} ${D}`;
+            })
+
+
+        }
+
+
+
+        $converter.addEventListener('click', () => {
+            converter();
+        })
+
+            buscarMoedas();
+        
+                
+
+
+    </script>
+</body>
+</html>
